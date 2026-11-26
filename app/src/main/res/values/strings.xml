@@ -73,4 +73,13 @@
 
     <string name="creating_sticker">Creating sticker…</string>
     <string name="exporting_media">Exporting media…</string>
+
+
+    <!-- Audio trim -->
+    <string name="trim_audio">Trim audio</string>
+    <string name="trim_audio_hint">WhatsApp accepts up to 10 seconds. You can trim even shorter audio.</string>
+    <string name="original_duration">Original: %1$s</string>
+    <string name="selected_duration">Selected: %1$s</string>
+    <string name="apply">Apply</string>
+    <string name="cd_audio_trim">Trim audio</string>
 </resources>

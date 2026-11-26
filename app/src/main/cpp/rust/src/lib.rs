@@ -1,5 +1,6 @@
 mod anim;
 mod ops;
+mod opus;
 mod shell;
 mod webp;
 

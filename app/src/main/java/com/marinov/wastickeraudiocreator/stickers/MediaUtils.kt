@@ -99,6 +99,39 @@ object MediaUtils {
         return max(1, dur.roundToInt())
     }
 
+    /** Duration in milliseconds from Ogg granule positions (48 kHz) minus OpusHead pre-skip. */
+    fun opusDurationMs(b: ByteArray): Long {
+        fun longLE(o: Int): Long {
+            var v = 0L
+            for (i in 7 downTo 0) v = (v shl 8) or (b[o + i].toLong() and 255)
+            return v
+        }
+        var pos = 0; var lastGranule = -1L; var preSkip = 0
+        while (pos + 27 <= b.size &&
+            b[pos] == 0x4F.toByte() && b[pos + 1] == 0x67.toByte() &&
+            b[pos + 2] == 0x67.toByte() && b[pos + 3] == 0x53.toByte()
+        ) {
+            val granule = longLE(pos + 6)
+            if (granule >= 0) lastGranule = granule
+            val segs = b[pos + 26].toInt() and 255
+            if (pos + 27 + segs > b.size) break
+            var bodyLen = 0
+            for (i in 0 until segs) bodyLen += b[pos + 27 + i].toInt() and 255
+            val bodyStart = pos + 27 + segs
+            if (preSkip == 0 && bodyStart + 12 <= b.size &&
+                String(b, bodyStart, 8, Charsets.US_ASCII) == "OpusHead"
+            ) {
+                preSkip = (b[bodyStart + 10].toInt() and 255) or ((b[bodyStart + 11].toInt() and 255) shl 8)
+            }
+            pos = bodyStart + bodyLen
+        }
+        return if (lastGranule > 0) {
+            ((lastGranule - preSkip) * 1000L) / 48000L
+        } else {
+            0L
+        }
+    }
+
     // ---------------- IO / decode / export ----------------
 
     fun copyUriToCache(context: Context, uri: Uri, ext: String): File {

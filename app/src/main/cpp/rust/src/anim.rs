@@ -2,58 +2,59 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fs;
 
+use crate::opus;
+
 extern "C" {
     fn wa_anim_overlay(
-        src: *const u8,
-        src_len: usize,
-        ov: *const u8,
-        ov_w: i32,
-        ov_h: i32,
-        a: f32,
-        b: f32,
-        c: f32,
-        d: f32,
-        e: f32,
-        f: f32,
-        out_size: i32,
-        quality: f32,
-        out: *mut *mut u8,
-        out_len: *mut usize,
+        src: *const u8, src_len: usize,
+        ov: *const u8, ov_w: i32, ov_h: i32,
+        m0: f32, m1: f32, m2: f32,
+        m3: f32, m4: f32, m5: f32,
+        out_size: i32, quality: f32,
+        target_duration_ms: i32, max_duration_ms: i32, target_fps: i32,
+        out: *mut *mut u8, out_len: *mut usize,
     ) -> i32;
 
     fn wa_anim_free(p: *mut u8);
 }
 
-fn d_size() -> i32 {
-    512
-}
-
-fn d_max() -> usize {
-    500_000
-}
+fn d_size() -> i32 { 512 }
+fn d_max() -> usize { 500_000 }
+fn d_fps() -> i32 { 10 }
+fn d_ceiling() -> i32 { 10_000 }
 
 #[derive(Deserialize)]
 struct Req {
     src_webp: String,
 
-    /// Raw RGBA bytes, size*size*4 (overlay rendered by Kotlin). Optional.
     #[serde(default)]
     overlay_rgba: Option<String>,
 
     out_webp: String,
 
+    #[serde(default)]
+    opus_path: Option<String>,
+
+    #[serde(default)]
+    out_opus: Option<String>,
+
     #[serde(default = "d_size")]
     size: i32,
 
-    /// Affine transform from source media coordinates to 512 sticker coordinates:
-    /// [a, b, c, d, e, f]
-    ///
-    /// dst_x = a*src_x + b*src_y + c
-    /// dst_y = d*src_x + e*src_y + f
     matrix: Vec<f32>,
 
     #[serde(default = "d_max")]
     max_bytes: usize,
+
+    #[serde(default = "d_fps")]
+    target_fps: i32,
+
+    #[serde(default = "d_ceiling")]
+    max_duration_ms: i32,
+
+    /// User-chosen audio duration (trim target). If absent, use full audio duration.
+    #[serde(default)]
+    audio_duration_ms: Option<i32>,
 }
 
 pub fn overlay_animated(req: &str) -> Value {
@@ -69,11 +70,9 @@ fn inner(req: &str) -> Result<Value, String> {
     if r.size <= 0 || r.size > 1024 {
         return Err("bad output size".into());
     }
-
     if r.matrix.len() != 6 {
         return Err("matrix must have 6 values".into());
     }
-
     if !r.matrix.iter().all(|v| v.is_finite()) {
         return Err("matrix contains non-finite values".into());
     }
@@ -91,34 +90,66 @@ fn inner(req: &str) -> Result<Value, String> {
     }
 
     let src = fs::read(&r.src_webp).map_err(|e| format!("read src: {e}"))?;
-
     if src.len() < 12 || &src[0..4] != b"RIFF" || &src[8..12] != b"WEBP" {
         return Err("source is not WebP".into());
     }
 
     let expect = (r.size as usize) * (r.size as usize) * 4;
-
     let ov: Vec<u8> = match &r.overlay_rgba {
         Some(p) => {
-            let b = fs::read(p).map_err(|e| format!("read overlay: {e}"))?;
-            if b.len() != expect {
+            let bv = fs::read(p).map_err(|e| format!("read overlay: {e}"))?;
+            if bv.len() != expect {
                 return Err(format!(
                     "overlay must be {} bytes of RGBA, got {}",
-                    expect,
-                    b.len()
+                    expect, bv.len()
                 ));
             }
-            b
+            bv
         }
         None => Vec::new(),
     };
-
     let (ov_ptr, ov_w, ov_h) = if ov.is_empty() {
         (std::ptr::null(), 0, 0)
     } else {
         (ov.as_ptr(), r.size, r.size)
     };
 
+    // ------------------------------------------------------------------
+    // Determine effective audio duration and target animation duration.
+    // ------------------------------------------------------------------
+    let mut target_duration_ms: i32 = -1; // -1 => keep original animation length
+    let mut audio_trimmed = false;
+
+    if let Some(opus_path) = &r.opus_path {
+        let opus_bytes = fs::read(opus_path).map_err(|e| format!("read opus: {e}"))?;
+        let audio_ms = opus::duration_ms(&opus_bytes) as i32;
+
+        if audio_ms > 0 {
+            // Effective audio duration: user-chosen trim (if any), capped.
+            let effective_audio_ms = match r.audio_duration_ms {
+                Some(user_ms) => user_ms.min(audio_ms).min(r.max_duration_ms),
+                None => audio_ms.min(r.max_duration_ms),
+            };
+
+            // The C layer extends the animation only if effective_audio_ms > original.
+            target_duration_ms = effective_audio_ms;
+
+            // Trim the audio if it is longer than the effective duration.
+            if audio_ms > effective_audio_ms {
+                if let Some(out_opus) = &r.out_opus {
+                    let trimmed = opus::trim_to_ms(&opus_bytes, effective_audio_ms as u64)?;
+                    fs::write(out_opus, &trimmed).map_err(|e| format!("write opus: {e}"))?;
+                    audio_trimmed = true;
+                }
+            } else if let Some(out_opus) = &r.out_opus {
+                fs::write(out_opus, &opus_bytes).map_err(|e| format!("write opus: {e}"))?;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Encode the WebP with looping / trimming / FPS normalization.
+    // ------------------------------------------------------------------
     let mut best: Vec<u8> = Vec::new();
     let mut best_q = 0f32;
 
@@ -128,28 +159,17 @@ fn inner(req: &str) -> Result<Value, String> {
 
         let ok = unsafe {
             wa_anim_overlay(
-                src.as_ptr(),
-                src.len(),
-                ov_ptr,
-                ov_w,
-                ov_h,
-                a,
-                b,
-                c,
-                d,
-                e,
-                f,
-                r.size,
-                q,
-                &mut out,
-                &mut out_len,
+                src.as_ptr(), src.len(),
+                ov_ptr, ov_w, ov_h,
+                a, b, c, d, e, f,
+                r.size, q,
+                target_duration_ms, r.max_duration_ms, r.target_fps,
+                &mut out, &mut out_len,
             )
         };
 
         if ok != 1 || out.is_null() || out_len == 0 {
-            if !out.is_null() {
-                unsafe { wa_anim_free(out); }
-            }
+            if !out.is_null() { unsafe { wa_anim_free(out); } }
             return Err("animated re-encode failed".into());
         }
 
@@ -169,6 +189,8 @@ fn inner(req: &str) -> Result<Value, String> {
     Ok(json!({
         "ok": true,
         "bytes": best.len(),
-        "quality": best_q
+        "quality": best_q,
+        "audio_trimmed": audio_trimmed,
+        "target_duration_ms": target_duration_ms
     }))
 }

@@ -61,5 +61,13 @@
             android:layout_margin="4dp"
             android:contentDescription="@string/cd_audio_attach"
             app:icon="@drawable/ic_audio_attach" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_audio_trim"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_audio_trim"
+            app:icon="@drawable/ic_trim"
+            android:visibility="gone" />
     </LinearLayout>
 </HorizontalScrollView>

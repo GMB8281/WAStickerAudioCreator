@@ -24,7 +24,7 @@ import com.marinov.wastickeraudiocreator.ui.canvas.StickerCanvasView
 import kotlinx.coroutines.launch
 import java.io.File
 
-class StickerEditorActivity : AppCompatActivity() {
+class StickerEditorActivity : AppCompatActivity(), AudioTrimSheet.Listener {
 
     private lateinit var canvas: StickerCanvasView
     private lateinit var btnMove: MaterialButton
@@ -32,6 +32,7 @@ class StickerEditorActivity : AppCompatActivity() {
     private lateinit var btnText: MaterialButton
     private lateinit var btnColor: MaterialButton
     private lateinit var btnAudioToggle: MaterialButton
+    private lateinit var btnAudioTrim: MaterialButton
     private lateinit var btnPrimary: MaterialButton
     private lateinit var etTextEntry: EditText
 
@@ -41,6 +42,7 @@ class StickerEditorActivity : AppCompatActivity() {
 
     private var opusFile: File? = null
     private var audioEnabled = false
+    private var audioDurationMs: Long? = null   // user-chosen trim target
     private var colorIndex = 0
     private var exporting = false
 
@@ -82,8 +84,11 @@ class StickerEditorActivity : AppCompatActivity() {
                     else -> {
                         opusFile = file
                         audioEnabled = true
+                        audioDurationMs = null   // reset previous trim
                         updateAudioIcon()
                         toast(R.string.audio_attached)
+                        // Always open the trim UI when a new audio is attached.
+                        openAudioTrim()
                     }
                 }
             }
@@ -99,6 +104,7 @@ class StickerEditorActivity : AppCompatActivity() {
         btnText = findViewById(R.id.btn_text)
         btnColor = findViewById(R.id.btn_color)
         btnAudioToggle = findViewById(R.id.btn_audio_toggle)
+        btnAudioTrim = findViewById(R.id.btn_audio_trim)
         btnPrimary = findViewById(R.id.btn_primary)
         etTextEntry = findViewById(R.id.et_text_entry)
 
@@ -162,7 +168,6 @@ class StickerEditorActivity : AppCompatActivity() {
             openTextEntry(op)
         }
 
-        // Close keyboard if user taps on empty area of the canvas
         canvas.onBackgroundTapped = {
             if (textEntryVisible) {
                 commitTextEntry()
@@ -239,6 +244,10 @@ class StickerEditorActivity : AppCompatActivity() {
             )
         }
 
+        btnAudioTrim.setOnClickListener {
+            openAudioTrim()
+        }
+
         selectMode(btnMove)
         updateAudioIcon()
 
@@ -278,6 +287,24 @@ class StickerEditorActivity : AppCompatActivity() {
                 R.drawable.ic_audio_off
             }
         )
+        // Show trim button whenever an audio file is attached.
+        btnAudioTrim.visibility = if (opusFile != null) View.VISIBLE else View.GONE
+    }
+
+    private fun openAudioTrim() {
+        val file = opusFile ?: return
+        val bytes = runCatching { file.readBytes() }.getOrNull() ?: return
+        val durationMs = MediaUtils.opusDurationMs(bytes)
+        if (durationMs <= 0) {
+            toast(R.string.invalid_image)
+            return
+        }
+        AudioTrimSheet.newInstance(durationMs)
+            .show(supportFragmentManager, AudioTrimSheet.TAG)
+    }
+
+    override fun onAudioTrimSelected(durationMs: Long) {
+        audioDurationMs = durationMs
     }
 
     // ------------------------------------------------------------------
@@ -285,14 +312,12 @@ class StickerEditorActivity : AppCompatActivity() {
     // ------------------------------------------------------------------
 
     private fun openTextEntry(op: CanvasOp.Text?) {
-        // If already editing the same text, just refocus
         if (textEntryVisible && editingText === op) {
             etTextEntry.requestFocus()
             etTextEntry.showKeyboard()
             return
         }
 
-        // If editing a different text, commit it first
         if (textEntryVisible) {
             commitTextEntry()
         }
@@ -307,7 +332,6 @@ class StickerEditorActivity : AppCompatActivity() {
         canvas.mode = CanvasMode.INTERACT
         selectMode(btnText)
 
-        // Hide the text from canvas while editing
         canvas.startEditingText(op)
 
         etTextEntry.post {
@@ -342,7 +366,6 @@ class StickerEditorActivity : AppCompatActivity() {
             }
         }
 
-        // Show the text again on canvas
         canvas.stopEditingText()
 
         canvas.mode = CanvasMode.INTERACT
@@ -389,31 +412,48 @@ class StickerEditorActivity : AppCompatActivity() {
             try {
                 val animated = info.animated
 
-                val bytes: ByteArray = if (animated) {
+                var finalWebpBytes: ByteArray
+                var finalOpusFile: File? = opusFile?.takeIf { audioEnabled }
+
+                if (animated) {
                     val pristine = !canvas.imageEdited() &&
                             info.width == 512 &&
-                            info.height == 512
+                            info.height == 512 &&
+                            finalOpusFile == null
 
                     if (pristine) {
-                        sourceBytes
+                        finalWebpBytes = sourceBytes
                     } else {
                         val matrix = canvas.baseTransform512()
-                        AnimatedWebp.export(
+                        val result = AnimatedWebp.export(
                             context = this@StickerEditorActivity,
                             source = sourceFile,
                             overlay = canvas.exportOverlay(),
-                            matrix = matrix
+                            matrix = matrix,
+                            opusFile = finalOpusFile,
+                            audioDurationMs = audioDurationMs
                         )
+
+                        finalWebpBytes = result.webpBytes
+
+                        if (result.opusBytes != null && finalOpusFile != null) {
+                            val trimmed = File(
+                                cacheDir,
+                                "final_opus_${System.currentTimeMillis()}.opus"
+                            )
+                            trimmed.writeBytes(result.opusBytes)
+                            finalOpusFile = trimmed
+                        }
                     }
                 } else {
-                    MediaUtils.exportWebp(canvas.export())
+                    finalWebpBytes = MediaUtils.exportWebp(canvas.export())
                 }
 
                 val st = MediaUtils.finalizeSticker(
                     context = this@StickerEditorActivity,
-                    webpBytes = bytes,
+                    webpBytes = finalWebpBytes,
                     animated = animated,
-                    opus = opusFile?.takeIf { audioEnabled }
+                    opus = finalOpusFile
                 )
 
                 setResult(
