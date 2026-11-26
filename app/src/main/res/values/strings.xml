@@ -1,0 +1,80 @@
+<resources>
+    <string name="app_name">WAStickerAudioCreator</string>
+
+    <string name="packs">Packs</string>
+    <string name="create_pack">Create pack</string>
+    <string name="pack_details">Pack details</string>
+    <string name="edit_sticker">Edit sticker</string>
+    <string name="create_sticker">Create sticker</string>
+    <string name="choose_media">Choose media</string>
+    <string name="choose_media_hint">Pick a WebP image (static or animated). You can add an Opus audio next.</string>
+    <string name="add_sticker">Add sticker</string>
+    <string name="remove_sticker">Remove sticker</string>
+    <string name="sticker_options">Sticker options</string>
+    <string name="add_pack">Add pack</string>
+    <string name="update_pack">Update pack</string>
+    <string name="remove">Remove</string>
+    <string name="pack_name">Pack name</string>
+    <string name="publisher">Publisher name</string>
+    <string name="stickers">Stickers</string>
+    <string name="no_packs">No packs yet. Create your first one!</string>
+
+    <string name="will_have_audio">Will this sticker have audio?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="add_text">Add text</string>
+    <string name="text_hint">Text</string>
+    <string name="edit_name">Edit pack name</string>
+    <string name="edit_publisher">Edit publisher name</string>
+
+    <string name="root_required_title">Root required</string>
+    <string name="root_required_message">This app injects stickers into WhatsApp\'s private storage, which requires root access. Grant root to this app in your root manager (Magisk/KernelSU). Use a secondary WhatsApp account for testing.</string>
+    <string name="grant_root">Grant root</string>
+    <string name="root_ok">Root access granted</string>
+    <string name="root_failed">Root access failed</string>
+    <string name="wa_not_installed">WhatsApp (com.whatsapp) is not installed</string>
+
+    <string name="working">Working…</string>
+    <string name="adding_pack">Adding pack to WhatsApp…</string>
+    <string name="adding_sticker">Adding sticker to WhatsApp…</string>
+    <string name="removing_pack">Removing pack from WhatsApp…</string>
+    <string name="pack_added">Pack added to WhatsApp</string>
+    <string name="pack_updated">Pack updated in WhatsApp</string>
+    <string name="pack_removed">Pack removed from WhatsApp</string>
+    <string name="sticker_added">Sticker added to favorites</string>
+    <string name="sticker_removed">Sticker removed</string>
+    <string name="pack_saved">Pack saved</string>
+    <string name="sticker_created">Sticker created</string>
+
+    <string name="only_webp">Only WebP files are supported</string>
+    <string name="only_opus">Only .opus (Ogg Opus) audio is supported</string>
+    <string name="animated_size_error">Animated WebP must be exactly 512×512</string>
+    <string name="file_too_big">File is too big (max 500 KB image / 1 MB audio)</string>
+    <string name="invalid_image">Could not decode this image</string>
+    <string name="preview_unavailable">Preview unavailable on this Android version. The original animation will be kept.</string>
+    <string name="audio_on">Audio enabled</string>
+    <string name="audio_off">Audio disabled</string>
+    <string name="no_audio_attached">No audio attached</string>
+    <string name="audio_attached">Audio attached</string>
+
+    <string name="name_required">Pack name is required</string>
+    <string name="publisher_required">Publisher name is required</string>
+    <string name="stickers_required">Add at least one sticker</string>
+    <string name="confirm_remove_pack_title">Remove pack?</string>
+    <string name="confirm_remove_pack_msg">This removes the pack from WhatsApp (your local copy is kept).</string>
+
+    <string name="cd_back">Back</string>
+    <string name="cd_move">Move media</string>
+    <string name="cd_draw">Draw</string>
+    <string name="cd_text">Add text</string>
+    <string name="cd_undo">Undo</string>
+    <string name="cd_color">Change color</string>
+    <string name="cd_audio_toggle">Toggle audio</string>
+    <string name="cd_audio_attach">Attach new audio</string>
+    <string name="cd_add_pack">Add pack to WhatsApp</string>
+    <string name="cd_edit_name">Edit pack name</string>
+    <string name="cd_edit_publisher">Edit publisher name</string>
+    <string name="cd_audio_badge">Has audio</string>
+</resources>

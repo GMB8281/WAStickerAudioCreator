@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:scrollbars="none"
+    android:background="@color/editor_bg">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:padding="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_move"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_move"
+            app:icon="@drawable/ic_move" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_draw"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_draw"
+            app:icon="@drawable/ic_draw" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_text"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_text"
+            app:icon="@drawable/ic_text" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_undo"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_undo"
+            app:icon="@drawable/ic_undo" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_color"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_color"
+            app:icon="@drawable/ic_palette" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_audio_toggle"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_audio_toggle"
+            app:icon="@drawable/ic_audio_off" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_audio_attach"
+            style="@style/Widget.App.CircleButton"
+            android:layout_margin="4dp"
+            android:contentDescription="@string/cd_audio_attach"
+            app:icon="@drawable/ic_audio_attach" />
+    </LinearLayout>
+</HorizontalScrollView>
