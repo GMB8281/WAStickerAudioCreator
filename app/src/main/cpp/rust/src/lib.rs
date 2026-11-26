@@ -1,3 +1,4 @@
+mod anim;
 mod ops;
 mod shell;
 mod webp;
@@ -17,7 +18,6 @@ fn out(v: serde_json::Value) -> *mut c_char {
         .into_raw()
 }
 
-/// Free a string returned by any wa_* function.
 #[no_mangle]
 pub extern "C" fn wa_free_string(p: *mut c_char) {
     if !p.is_null() { unsafe { drop(CString::from_raw(p)); } }
@@ -49,4 +49,10 @@ pub extern "C" fn wa_inject_favorite(req: *const c_char) -> *mut c_char {
 #[no_mangle]
 pub extern "C" fn wa_remove_pack(req: *const c_char) -> *mut c_char {
     out(ops::remove_pack(&to_str(req)))
+}
+
+/// Animated WebP re-encode with baked overlay (no root needed).
+#[no_mangle]
+pub extern "C" fn wa_overlay_animated(req: *const c_char) -> *mut c_char {
+    out(anim::overlay_animated(&to_str(req)))
 }

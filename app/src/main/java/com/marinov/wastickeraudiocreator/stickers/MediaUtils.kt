@@ -13,6 +13,8 @@ import java.util.UUID
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import android.graphics.drawable.AnimatedImageDrawable
+import android.graphics.drawable.Drawable
 
 object MediaUtils {
 
@@ -168,5 +170,17 @@ object MediaUtils {
             dur = opusDurationSeconds(ob)
         }
         return Sticker(id, webpName, opusName, animated, dur)
+    }
+
+    /** Animated preview (API 28+). Returns null for static images or older APIs. */
+    fun decodeAnimatedDrawable(bytes: ByteArray): Drawable? {
+        if (Build.VERSION.SDK_INT < 28) return null
+        return try {
+            val src = ImageDecoder.createSource(ByteBuffer.wrap(bytes))
+            val d = ImageDecoder.decodeDrawable(src)
+            if (d is AnimatedImageDrawable) d else null
+        } catch (e: Exception) {
+            null
+        }
     }
 }

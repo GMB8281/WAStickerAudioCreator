@@ -14,10 +14,30 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <com.marinov.wastickeraudiocreator.ui.StickerCanvasView
+        <com.marinov.wastickeraudiocreator.ui.canvas.StickerCanvasView
             android:id="@+id/canvas"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
+
+        <EditText
+            android:id="@+id/et_text_entry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:background="@null"
+            android:gravity="center"
+            android:hint="@string/text_hint"
+            android:imeOptions="actionDone"
+            android:importantForAccessibility="no"
+            android:importantForAutofill="no"
+            android:inputType="textCapSentences"
+            android:maxLines="1"
+            android:textColor="@android:color/white"
+            android:textColorHint="#80FFFFFF"
+            android:textSize="32sp"
+            android:visibility="gone" />
     </FrameLayout>
 
     <include layout="@layout/include_bottom_actions" />

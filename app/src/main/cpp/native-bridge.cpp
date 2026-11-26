@@ -6,6 +6,7 @@ char* wa_env_check(const char* req);
 char* wa_inject_pack(const char* req);
 char* wa_inject_favorite(const char* req);
 char* wa_remove_pack(const char* req);
+char* wa_overlay_animated(const char* req);
 void  wa_free_string(char* p);
 }
 
@@ -45,4 +46,10 @@ Java_com_marinov_wastickeraudiocreator_whatsapp_WhatsAppBridge_nativeInjectFavor
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_marinov_wastickeraudiocreator_whatsapp_WhatsAppBridge_nativeRemovePack(JNIEnv* env, jobject, jstring req) {
     return call1(env, req, wa_remove_pack);
+}
+
+// stickers module: image processing entry point (same .so, separate JNI class).
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_marinov_wastickeraudiocreator_stickers_AnimatedWebp_nativeOverlayAnimated(JNIEnv* env, jobject, jstring req) {
+    return call1(env, req, wa_overlay_animated);
 }

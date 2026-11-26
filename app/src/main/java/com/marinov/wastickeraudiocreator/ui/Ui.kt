@@ -3,6 +3,7 @@ package com.marinov.wastickeraudiocreator.ui
 import android.content.Context
 import android.view.Gravity
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -28,6 +29,16 @@ fun Context.toast(resId: Int) {
 
 fun View.dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+fun View.showKeyboard() {
+    val imm = context.getSystemService(InputMethodManager::class.java)
+    imm?.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+}
+
+fun View.hideKeyboard() {
+    val imm = context.getSystemService(InputMethodManager::class.java)
+    imm?.hideSoftInputFromWindow(windowToken, 0)
+}
+
 fun AppCompatActivity.inputDialog(
     title: String,
     hint: String,
@@ -39,6 +50,7 @@ fun AppCompatActivity.inputDialog(
     val et = view.findViewById<TextInputEditText>(R.id.et_input)
     til.hint = hint
     et.setText(initial)
+
     MaterialAlertDialogBuilder(this)
         .setTitle(title)
         .setView(view)
@@ -70,16 +82,19 @@ fun AppCompatActivity.runWhatsAppTask(
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(24), dp(24), dp(24), dp(24))
+
         addView(ProgressBar(ctx))
         addView(TextView(ctx).apply {
             text = message
             setPadding(dp(20), 0, 0, 0)
         })
     }
+
     val dialog: AlertDialog = MaterialAlertDialogBuilder(ctx)
         .setView(FrameLayout(ctx).apply { addView(layout) })
         .setCancelable(false)
         .show()
+
     lifecycleScope.launch {
         val r = try {
             block()
