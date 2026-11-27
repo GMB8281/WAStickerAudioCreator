@@ -140,11 +140,42 @@ fn check_schema(conn: &Connection, need_audio: bool) -> Result<(), String> {
     Ok(())
 }
 
+// ------------------------------------------------------------ stickers.db backup
+//
+// Backup policy: ONLY THE MOST RECENT backup is kept. It lives next to the live
+// database as `stickers.db.bak-<ms>` (same naming as the old python injectors, so
+// `ls -t stickers.db.bak-* | head -1` is always "the" backup). Every successful
+// write creates a fresh backup and then deletes all older `stickers.db.bak-*`,
+// so backups no longer pile up (before this, every operation left one behind).
+//
+// TODO(UI): restoring a backup is NOT implemented yet — it still has to be added
+// to the app UI (e.g. a "Restore previous WhatsApp stickers state" action). When
+// implemented it must, as root and in this order:
+//   1. `am force-stop <package>`;
+//   2. copy the newest `stickers.db.bak-*` over `stickers.db`;
+//   3. `rm -f stickers.db-wal stickers.db-shm`;
+//   4. chown to the WhatsApp uid:gid (see `wa_owner`), chmod 660, `restorecon`
+//      (exactly like the second half of `write_back`).
+// Known limitation to keep in mind for the restore: the backup copies only the
+// main `stickers.db` file; WhatsApp is force-stopped right before, so changes
+// still sitting in its `-wal` may not be part of the backup.
+
+/// Delete every `stickers.db.bak-*` except the one that starts with `keep_ms`.
+/// Best-effort: failing to prune must never fail the injection itself.
+fn prune_old_backups(p: &Paths, keep_ms: u64) {
+    let keep = format!("{}.bak-{}", p.db, keep_ms);
+    let cmd = format!(
+        "for f in {}.bak-*; do case \"$f\" in {}*) ;; *) rm -f \"$f\" ;; esac; done",
+        q(&p.db), q(&keep));
+    let _ = su(&cmd, 15);
+}
+
 fn write_back(c: &Common, p: &Paths, owner: (u32, u32), backup: bool) -> Result<(), String> {
     let staged = format!("{}/stickers.db", c.stage_dir);
+    let bak_ms = now_ms();
     let mut cmd = String::new();
     if backup {
-        cmd += &format!("cp {} {}.bak-{} && ", q(&p.db), q(&p.db), now_ms());
+        cmd += &format!("cp {} {}.bak-{} && ", q(&p.db), q(&p.db), bak_ms);
     }
     cmd += &format!(
         "cp {} {} && rm -f {} {} && chown {}:{} {} && chmod 660 {} && (restorecon {} 2>/dev/null; true)",
@@ -152,6 +183,10 @@ fn write_back(c: &Common, p: &Paths, owner: (u32, u32), backup: bool) -> Result<
         q(&format!("{}-wal", p.db)), q(&format!("{}-shm", p.db)),
         owner.0, owner.1, q(&p.db), q(&p.db), q(&p.db));
     su(&cmd, 30)?;
+    // Only after the new backup AND the write both succeeded: drop the older backups.
+    if backup {
+        prune_old_backups(p, bak_ms);
+    }
     Ok(())
 }
 
