@@ -291,6 +291,9 @@ class StickerEditorActivity : AppCompatActivity(), AudioTrimSheet.Listener {
         btnAudioTrim.visibility = if (opusFile != null) View.VISIBLE else View.GONE
     }
 
+    private var audioStartMs: Long? = null
+    private var audioEndMs: Long? = null
+
     private fun openAudioTrim() {
         val file = opusFile ?: return
         val bytes = runCatching { file.readBytes() }.getOrNull() ?: return
@@ -299,12 +302,13 @@ class StickerEditorActivity : AppCompatActivity(), AudioTrimSheet.Listener {
             toast(R.string.invalid_image)
             return
         }
-        AudioTrimSheet.newInstance(durationMs)
+        AudioTrimSheet.newInstance(durationMs, file.absolutePath)
             .show(supportFragmentManager, AudioTrimSheet.TAG)
     }
 
-    override fun onAudioTrimSelected(durationMs: Long) {
-        audioDurationMs = durationMs
+    override fun onAudioTrimSelected(startMs: Long, endMs: Long) {
+        audioStartMs = startMs
+        audioEndMs = endMs
     }
 
     // ------------------------------------------------------------------
@@ -431,7 +435,8 @@ class StickerEditorActivity : AppCompatActivity(), AudioTrimSheet.Listener {
                             overlay = canvas.exportOverlay(),
                             matrix = matrix,
                             opusFile = finalOpusFile,
-                            audioDurationMs = audioDurationMs
+                            audioStartMs = audioStartMs,
+                            audioEndMs = audioEndMs
                         )
 
                         finalWebpBytes = result.webpBytes

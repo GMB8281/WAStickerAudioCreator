@@ -52,9 +52,11 @@ struct Req {
     #[serde(default = "d_ceiling")]
     max_duration_ms: i32,
 
-    /// User-chosen audio duration (trim target). If absent, use full audio duration.
     #[serde(default)]
-    audio_duration_ms: Option<i32>,
+    audio_start_ms: Option<i32>,
+
+    #[serde(default)]
+    audio_end_ms: Option<i32>,
 }
 
 pub fn overlay_animated(req: &str) -> Value {
@@ -114,10 +116,7 @@ fn inner(req: &str) -> Result<Value, String> {
         (ov.as_ptr(), r.size, r.size)
     };
 
-    // ------------------------------------------------------------------
-    // Determine effective audio duration and target animation duration.
-    // ------------------------------------------------------------------
-    let mut target_duration_ms: i32 = -1; // -1 => keep original animation length
+    let mut target_duration_ms: i32 = -1;
     let mut audio_trimmed = false;
 
     if let Some(opus_path) = &r.opus_path {
@@ -125,19 +124,23 @@ fn inner(req: &str) -> Result<Value, String> {
         let audio_ms = opus::duration_ms(&opus_bytes) as i32;
 
         if audio_ms > 0 {
-            // Effective audio duration: user-chosen trim (if any), capped.
-            let effective_audio_ms = match r.audio_duration_ms {
-                Some(user_ms) => user_ms.min(audio_ms).min(r.max_duration_ms),
+            let effective_start_ms = r.audio_start_ms.unwrap_or(0).max(0);
+            let effective_end_ms = match r.audio_end_ms {
+                Some(end) => end.min(audio_ms).min(r.max_duration_ms),
                 None => audio_ms.min(r.max_duration_ms),
             };
+            let effective_end_ms = effective_end_ms.max(effective_start_ms);
+            let effective_duration_ms = effective_end_ms - effective_start_ms;
 
-            // The C layer extends the animation only if effective_audio_ms > original.
-            target_duration_ms = effective_audio_ms;
+            target_duration_ms = effective_duration_ms;
 
-            // Trim the audio if it is longer than the effective duration.
-            if audio_ms > effective_audio_ms {
+            if effective_start_ms > 0 || effective_end_ms < audio_ms {
                 if let Some(out_opus) = &r.out_opus {
-                    let trimmed = opus::trim_to_ms(&opus_bytes, effective_audio_ms as u64)?;
+                    let trimmed = opus::trim_interval(
+                        &opus_bytes,
+                        effective_start_ms as u64,
+                        effective_end_ms as u64
+                    )?;
                     fs::write(out_opus, &trimmed).map_err(|e| format!("write opus: {e}"))?;
                     audio_trimmed = true;
                 }
@@ -147,9 +150,6 @@ fn inner(req: &str) -> Result<Value, String> {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Encode the WebP with looping / trimming / FPS normalization.
-    // ------------------------------------------------------------------
     let mut best: Vec<u8> = Vec::new();
     let mut best_q = 0f32;
 

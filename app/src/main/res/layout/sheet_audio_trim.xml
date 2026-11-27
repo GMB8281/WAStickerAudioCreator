@@ -38,17 +38,33 @@
         android:textAppearance="?attr/textAppearanceBodyMedium"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
-    <com.google.android.material.slider.Slider
-        android:id="@+id/slider_trim"
+    <!-- Play/Pause button + Timeline on the same row -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:valueFrom="0.5"
-        android:valueTo="10.0"
-        android:stepSize="0.1" />
+        android:layout_marginTop="24dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_play"
+            style="@style/Widget.App.CircleButton"
+            android:contentDescription="@string/cd_audio_toggle"
+            app:icon="@drawable/ic_play" />
+
+        <com.google.android.material.slider.RangeSlider
+            android:id="@+id/slider_trim"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:stepSize="0.1"
+            android:valueFrom="0.0"
+            android:valueTo="10.0" />
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/tv_selected_duration"
+        android:id="@+id/tv_selected_interval"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
@@ -56,10 +72,11 @@
         android:textAppearance="?attr/textAppearanceTitleMedium"
         android:textColor="?attr/colorOnSurface" />
 
+    <!-- Apply -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_apply"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
         android:text="@string/apply" />
 </LinearLayout>

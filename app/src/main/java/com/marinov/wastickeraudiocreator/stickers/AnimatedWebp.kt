@@ -10,15 +10,6 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.util.UUID
 
-/**
- * Animated WebP backend.
- *
- * Guarantees:
- *  - output is resampled to TARGET_FPS (10 fps)
- *  - if audio is longer than the animation, the animation is looped to match it
- *  - final duration is capped at MAX_DURATION_MS (10 s)
- *  - audio is trimmed to the chosen/limited duration when needed
- */
 object AnimatedWebp {
 
     init {
@@ -36,20 +27,14 @@ object AnimatedWebp {
         val audioTrimmed: Boolean
     )
 
-    /**
-     * @param overlay 512x512 transparent bitmap with strokes/text (may be empty)
-     * @param matrix  source-media -> 512 sticker space affine transform [a,b,c,d,e,f]
-     * @param opusFile optional original Ogg Opus audio
-     * @param audioDurationMs optional user-chosen audio duration (trim target).
-     *                        If null, the full audio duration is used (still capped).
-     */
     suspend fun export(
         context: Context,
         source: File,
         overlay: Bitmap,
         matrix: FloatArray,
         opusFile: File?,
-        audioDurationMs: Long? = null,
+        audioStartMs: Long? = null,
+        audioEndMs: Long? = null,
         size: Int = 512
     ): Result = withContext(Dispatchers.IO) {
         require(matrix.size == 6) { "matrix must have 6 values" }
@@ -77,7 +62,8 @@ object AnimatedWebp {
             if (opusFile != null && opusFile.exists()) {
                 req.put("opus_path", opusFile.absolutePath)
                 req.put("out_opus", outOpus.absolutePath)
-                audioDurationMs?.let { req.put("audio_duration_ms", it) }
+                audioStartMs?.let { req.put("audio_start_ms", it) }
+                audioEndMs?.let { req.put("audio_end_ms", it) }
             }
 
             val res = JSONObject(nativeOverlayAnimated(req.toString()))

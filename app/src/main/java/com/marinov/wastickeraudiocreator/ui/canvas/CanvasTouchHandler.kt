@@ -13,6 +13,12 @@ internal class CanvasTouchHandler(private val view: StickerCanvasView) {
     fun onTouchEvent(event: MotionEvent): Boolean {
         if (view.rect.width() <= 0) return true
 
+        // Intercept ALL touch events for DRAW mode immediately
+        if (view.mode == CanvasMode.DRAW) {
+            handleDraw(event)
+            return true
+        }
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 view.isMultiTouch = false
@@ -71,11 +77,6 @@ internal class CanvasTouchHandler(private val view: StickerCanvasView) {
     }
 
     private fun handleSingleTouchMove(event: MotionEvent) {
-        if (view.mode == CanvasMode.DRAW) {
-            handleDraw(event)
-            return
-        }
-
         val dx = event.x - view.lastTouch.x
         val dy = event.y - view.lastTouch.y
 
