@@ -12,8 +12,8 @@ android {
         applicationId = "com.marinov.wastickeraudiocreator"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 20261126
+        versionName = "0.20261126"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
