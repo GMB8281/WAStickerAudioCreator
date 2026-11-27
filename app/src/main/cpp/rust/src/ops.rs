@@ -162,9 +162,82 @@ fn plant(src: &Path, dst: &str, owner: (u32, u32)) -> Result<(), String> {
     Ok(())
 }
 
+/// Reopen WhatsApp's launcher activity.
+///
+/// NOTE: do NOT use `monkey` here. Monkey drives the window manager's rotation
+/// state and leaves "Auto-rotate" switched on after it exits, which is exactly
+/// the bug of the screen auto-rotation being enabled after every injection.
+/// `am start` only starts the activity and touches no system settings.
 fn relaunch(c: &Common) {
-    if c.relaunch {
-        let _ = su(&format!("monkey -p {} -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1", c.package), 20);
+    if !c.relaunch { return; }
+    // `valid_pkg` guarantees the package only has [A-Za-z0-9._], safe to interpolate.
+    let direct = format!(
+        "am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p {} 2>&1",
+        c.package);
+    if let Ok(out) = su(&direct, 20) {
+        if !out.contains("Error") { return; }
+    }
+    // Fallback: resolve the launcher component explicitly, then start it by name.
+    let resolve = format!(
+        "cmd package resolve-activity --brief -c android.intent.category.LAUNCHER {} 2>/dev/null",
+        c.package);
+    if let Ok(out) = su(&resolve, 20) {
+        let comp = out.lines().rev().map(str::trim)
+            .find(|l| l.contains('/') && !l.contains(' '));
+        if let Some(comp) = comp {
+            let _ = su(&format!("am start -n {} >/dev/null 2>&1", q(comp)), 20);
+        }
+    }
+}
+
+/// Snapshot of the user's screen-rotation settings, restored when dropped.
+///
+/// Created right after root is confirmed and dropped at the very end of each
+/// operation (after `relaunch`), also on early `?` returns. Safety net: whatever
+/// flips auto-rotate during the injection (force-stop, relaunch, ...), the
+/// user's original setting is put back.
+struct RotationGuard {
+    accel: Option<String>, // Settings.System.ACCELEROMETER_ROTATION (1 = auto-rotate on)
+    user: Option<String>,  // Settings.System.USER_ROTATION (0/1/2/3)
+}
+
+fn clean_setting(v: &str) -> Option<String> {
+    let v = v.trim();
+    if !v.is_empty() && v.len() <= 3 && v.chars().all(|c| c.is_ascii_digit()) {
+        Some(v.to_string())
+    } else {
+        None // "null", empty or anything unexpected: leave that setting alone
+    }
+}
+
+impl RotationGuard {
+    fn capture() -> Self {
+        let out = su(
+            "settings get system accelerometer_rotation; settings get system user_rotation",
+            10,
+        ).unwrap_or_default();
+        let mut it = out.lines();
+        let accel = it.next().and_then(clean_setting);
+        let user = it.next().and_then(clean_setting);
+        RotationGuard { accel, user }
+    }
+}
+
+impl Drop for RotationGuard {
+    fn drop(&mut self) {
+        let mut script = String::new();
+        // Restore auto-rotate first, then the fixed orientation.
+        if let Some(v) = &self.accel {
+            script += &format!(
+                "[ \"$(settings get system accelerometer_rotation)\" = \"{v}\" ] || settings put system accelerometer_rotation {v}\n");
+        }
+        if let Some(v) = &self.user {
+            script += &format!(
+                "[ \"$(settings get system user_rotation)\" = \"{v}\" ] || settings put system user_rotation {v}\n");
+        }
+        if !script.is_empty() {
+            let _ = su(&script, 10);
+        }
     }
 }
 
@@ -225,6 +298,7 @@ fn inject_pack_inner(req: &str) -> Result<Value, String> {
     if !valid_pkg(&r.c.package) { return Err("bad package".into()); }
     if r.stickers.is_empty() { return Err("pack has no stickers".into()); }
     root_ok()?;
+    let _rot = RotationGuard::capture(); // restores the user's rotation settings on exit
     let p = Paths::new(&r.c.package);
     let owner = wa_owner(&p)?;
     ensure_dirs(&p, owner)?;
@@ -343,6 +417,7 @@ fn inject_favorite_inner(req: &str) -> Result<Value, String> {
     let r: FavReq = serde_json::from_str(req).map_err(e)?;
     if !valid_pkg(&r.c.package) { return Err("bad package".into()); }
     root_ok()?;
+    let _rot = RotationGuard::capture(); // restores the user's rotation settings on exit
     let p = Paths::new(&r.c.package);
     let owner = wa_owner(&p)?;
     ensure_dirs(&p, owner)?;
@@ -404,6 +479,7 @@ fn remove_pack_inner(req: &str) -> Result<Value, String> {
     let r: RemoveReq = serde_json::from_str(req).map_err(e)?;
     if !valid_pkg(&r.c.package) { return Err("bad package".into()); }
     root_ok()?;
+    let _rot = RotationGuard::capture(); // restores the user's rotation settings on exit
     let p = Paths::new(&r.c.package);
     let owner = wa_owner(&p)?;
     stage_db(&r.c, &p, true)?;
